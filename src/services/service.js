@@ -68,9 +68,23 @@ function getDevicesWithType() {
   return result;
 }
 
+function getSpecificDeviceData(deviceName) {
+  const filteredResults = dataSet.data.filter(
+    (record) => record.device_display_name === deviceName,
+  );
+  const result = { xAxis: [], yAxis: [] };
+  filteredResults.forEach((element) => {
+    const date = new Date(element.time).toLocaleTimeString();
+    result.xAxis.push(date);
+    result.yAxis.push(element.reading);
+  });
+  return result;
+}
+
 export {
   getDeviceNames,
   getAverageHourlyTemp,
   hourlyAvgAreaTemp,
   getDevicesWithType,
+  getSpecificDeviceData,
 };
