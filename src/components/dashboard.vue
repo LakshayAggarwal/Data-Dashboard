@@ -1,10 +1,10 @@
 <template>
   <v-container col>
-    <v-layout>
+    <v-layout py-4>
       <v-flex xs6>
         <v-layout fill-height class='cardLayout' pa-3 mx-4 row wrap>
-          <v-flex xs6>
-            Temperature average
+          <v-flex class="text-left graph-headers" ml-4 xs6>
+            Hourly Average Temperature
           </v-flex>
           <v-flex pr-2 offset-xs6>
             <v-overflow-btn
@@ -24,7 +24,10 @@
         </v-layout>
       </v-flex>
       <v-flex xs6>
-        <v-layout fill-height class='cardLayout' pa-2 mx-4>
+        <v-layout fill-height row wrap class='cardLayout' pa-2 mx-4>
+          <v-flex ml-4 class="text-left graph-headers" align-self-center xs12>
+            Temperature Average
+          </v-flex>
           <v-flex class="line-chart-wrapper">
             <chart :options="chartOptionsLine"></chart>
           </v-flex>
@@ -32,30 +35,38 @@
       </v-flex>
     </v-layout>
     <v-layout pa-4>
-      <v-flex shrink>
-        <v-simple-table class='cardLayout' fixed-header dark height="300px">
-          <template v-slot:default>
-            <thead>
-              <tr>
-                <th class="text-center">Area</th>
-                <th class="text-center">Device Type</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="device in devices" :key="device.device_display_name + device.device_type">
-                <td>{{ device.device_display_name }}</td>
-                <td>{{ device.device_type }}</td>
-              </tr>
-            </tbody>
-          </template>
-        </v-simple-table>
+      <v-flex xs6>
+        <v-layout fill-height row wrap class='cardLayout' ml-0 mr-4 pa-2>
+          <v-flex ml-4 class="text-left graph-headers" align-self-center xs6>
+            Device Data
+          </v-flex>
+          <v-flex xs12>
+            <v-simple-table class="ml-1" fixed-header height="400px">
+              <template v-slot:default>
+                <thead>
+                  <tr>
+                    <th class="text-center">Area</th>
+                    <th class="text-center">Device Type</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="device in devices"
+                  :key="device.device_display_name+device.device_type">
+                    <td>{{ device.device_display_name }}</td>
+                    <td>{{ device.device_type }}</td>
+                  </tr>
+                </tbody>
+              </template>
+            </v-simple-table>
+          </v-flex>
+        </v-layout>
       </v-flex>
-      <v-flex grow>
-        <v-layout row wrap class='cardLayout' ma-4>
-          <v-flex clas="" align-self-center xs6>
+      <v-flex xs6>
+        <v-layout row wrap class='cardLayout' ml-4 mr-0 pa-2>
+          <v-flex ml-4 class="text-left graph-headers" align-self-center xs6>
             Live Temperature
           </v-flex>
-          <v-flex pr-2 xs6>
+          <v-flex pr-2 offset-xs6>
             <v-overflow-btn
               v-model="defaultLiveDevice"
               @change="deviceChangeLiveEvent($event)"
@@ -101,6 +112,7 @@ export default {
       devices: {},
       defaultDevice: 'Reception',
       defaultLiveDevice: 'Reception',
+      liveVariable: null,
     };
   },
   created() {
@@ -117,16 +129,22 @@ export default {
     deviceChangeEvent(device) {
       const temp = getAverageHourlyTemp(device);
       this.chartOptionsBar = {
+        tooltip: {
+          formatter: (params) => `${params.marker}${params.name}<br>${params.data.toFixed(2)} &degC`,
+        },
         xAxis: {
+          name: 'Hours',
           data: temp.xAxis,
         },
         yAxis: {
+          name: 'Average Temp.',
           type: 'value',
         },
         series: [
           {
             type: 'bar',
             data: temp.yAxis,
+            barWidth: '50%',
           },
         ],
         color: ['#127ac2'],
@@ -135,7 +153,12 @@ export default {
     getTempAvgPerDevice() {
       const response = hourlyAvgAreaTemp();
       this.chartOptionsLine = {
+        tooltip: {
+          trigger: 'axis',
+          formatter: (params) => `${params[0].name}<br>${params[0].marker}${params[0].data.toFixed(2)} &degC`,
+        },
         xAxis: {
+          name: 'Area',
           data: response.xAxis,
           boundaryGap: true,
           splitArea: {
@@ -144,16 +167,15 @@ export default {
           axisLabel: {
             rotate: 90,
             margin: 5,
-            formatter: (value) => `{value|${value}}`,
-            rich: {
-              value: {
-                width: 10,
-                color: 'red',
-              },
+            formatter: (value) => {
+              const str = value.split('-');
+              return str.join('\n');
             },
+            fontSize: 7,
           },
         },
         yAxis: {
+          name: 'Average Temp.',
           type: 'value',
         },
         series: [
@@ -168,11 +190,21 @@ export default {
     setTableData() {
       this.devices = getDevicesWithType();
     },
+    clearLiveList() {
+      clearInterval(this.liveVariable);
+    },
     deviceChangeLiveEvent(device) {
-      let idVar;
+      if (this.liveVariable) {
+        this.clearLiveList();
+      }
       const response = getSpecificDeviceData(device);
       this.chartOptionsLive = {
+        tooltip: {
+          trigger: 'axis',
+          formatter: (params) => `${params[0].name}<br>${params[0].marker}${params[0].data.toFixed(2)} &degC`,
+        },
         xAxis: {
+          name: 'Time',
           data: [],
           splitLine: {
             show: false,
@@ -182,6 +214,7 @@ export default {
           },
         },
         yAxis: {
+          name: 'Temperature',
           type: 'value',
         },
         series: [
@@ -193,10 +226,7 @@ export default {
         color: ['#127ac2'],
       };
       let currentIndex = response.xAxis.length - 1;
-      function myStopFunction() {
-        clearInterval(idVar);
-      }
-      idVar = setInterval(() => {
+      this.liveVariable = setInterval(() => {
         for (let i = 0; i < 10; i += 1) {
           if (this.chartOptionsLive.xAxis.data.length === 10) {
             this.chartOptionsLive.xAxis.data.shift();
@@ -206,12 +236,11 @@ export default {
             this.chartOptionsLive.xAxis.data.push(response.xAxis[currentIndex]);
             this.chartOptionsLive.series[0].data.push(response.yAxis[currentIndex]);
           } else {
-            myStopFunction();
+            this.clearLiveList();
           }
           currentIndex -= 1;
         }
       }, 1000);
-      console.log(response);
     },
   },
 };
@@ -265,5 +294,9 @@ export default {
   border-color: #959595 !important;
 }
 
+.graph-headers{
+  font-size: 18px;
+  font-weight: bold;
+}
 
 </style>
